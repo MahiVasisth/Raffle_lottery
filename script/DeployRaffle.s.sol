@@ -9,14 +9,14 @@ import {AddConsumer, CreateSubscription, FundSubscription} from "./Interactions.
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
-        AddConsumer addConsumer = new AddConsumer();
-        (
-            uint64 subscriptionId,
-            bytes32 gasLane,
-            uint256 automationUpdateInterval,
+        AddConsumer addConsumer = new AddConsumer(); 
+            (   
             uint256 raffleEntranceFee,
-            uint32 callbackGasLimit,
+            uint256 automationUpdateInterval,
             address vrfCoordinatorV2,
+            bytes32 gasLane,
+            uint64 subscriptionId,
+            uint32 callbackGasLimit,
             address link,
             uint256 deployerKey
         ) = helperConfig.activeNetworkConfig();
@@ -39,14 +39,14 @@ contract DeployRaffle is Script {
 
         vm.startBroadcast(deployerKey);
         Raffle raffle = new Raffle(
-            subscriptionId,
-            gasLane,
-            automationUpdateInterval,
             raffleEntranceFee,
-            callbackGasLimit,
-            vrfCoordinatorV2
+            automationUpdateInterval,
+            vrfCoordinatorV2,
+            gasLane,
+            subscriptionId,             
+            callbackGasLimit
         );
-        vm.stopBroadcast();
+       vm.stopBroadcast();
 
         // We already have a broadcast in here
         addConsumer.addConsumer(

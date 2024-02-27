@@ -43,11 +43,12 @@ contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
     uint64 private immutable i_subscriptionId;
     uint32 private immutable i_callbackGasLimit;
     uint256 private  s_LastTimeStamp;
-    address Winner;
+    address private Winner;
     // uint256 after_time = 48 hours ;
   event Entered_Raffle(address);
   event  WinnerIs(address winner);
-    constructor(
+    constructor
+    (
         uint256 _price, 
         uint256 _interval,
         address vrfCoordinator,
@@ -153,5 +154,8 @@ function fulfillRandomWords(
     function getPlayer(uint256 index) public view returns (address) {
       return s_players[index];
   }
+  function getRecentWinner() public view returns (address) {
+    return Winner;
+}
 
   }
