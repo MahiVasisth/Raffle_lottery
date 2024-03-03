@@ -25,12 +25,19 @@ pragma solidity ^0.8.0 ;
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
- error insufficient_amount();
- error insufficient_time();
- error raffle_is_not_open(); 
-      
+import {console} from "forge-std/Test.sol"; 
 contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
 {
+  error insufficient_amount();
+ error insufficient_time();
+ error raffle_is_not_open(); 
+ enum Raffle_State 
+ {
+     open,
+    Calculating
+ }
+ Raffle_State raffle1 ; 
+
     uint16 private constant requestConfirmations = 3;
     uint32 private constant numwords = 1;     
   
@@ -61,16 +68,16 @@ contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinator);
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
+        raffle1 = Raffle_State.open;
         i_callbackGasLimit = callbackGasLimit ;
          s_LastTimeStamp = block.timestamp ;
+         uint256 balance = address(this).balance;
+        if (balance > 0) {
+            payable(msg.sender).transfer(balance);
+        }
+   
     }
-    enum Raffle_State
-    {
-        open,
-       Calculating
-    }
-    Raffle_State raffle ; 
-
+   
     function enter_raffle(uint256 amount) external payable
     {
       require(msg.sender != address(0));
@@ -78,7 +85,7 @@ contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
       {
         revert insufficient_amount();
       }
-      if(raffle!=Raffle_State.open)
+      if(raffle1!=Raffle_State.open)
       {
         revert raffle_is_not_open(); 
       }
@@ -89,12 +96,16 @@ contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
       payable(msg.sender).transfer(return_amount);
         
     }
-      function checkUpkeep(bytes memory ) public view returns (bool upkeepNeeded, bytes memory performData)
+      function checkUpkeep(bytes memory ) public view override returns (bool upkeepNeeded, bytes memory )
         {
-        bool has_timestamp = (block.timestamp - s_LastTimeStamp) < i_interval ;
+        bool has_timestamp = ((block.timestamp - s_LastTimeStamp) > i_interval);
+        console.log("timestamp is",has_timestamp);
         bool has_players = s_players.length > 0 ;
-        bool has_state =Raffle_State.open == raffle;
+        console.log("players is",has_players);
+        bool has_state =Raffle_State.open == raffle1;
+        console.log("state is",has_state);
         bool hasBalance = address(this).balance > 0;
+        console.log("balance is",hasBalance);
           upkeepNeeded = (has_timestamp && has_players && has_state && hasBalance);
           return(upkeepNeeded , "0x0");
         }
@@ -103,8 +114,8 @@ contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface
                (bool upkeepNeeded, ) = checkUpkeep("");
 
              require(upkeepNeeded);
-        if((block.timestamp - s_LastTimeStamp) < i_interval ) {
-            raffle = Raffle_State.Calculating;
+        if((block.timestamp - s_LastTimeStamp) > i_interval ) {
+            raffle1 = Raffle_State.Calculating;
             i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
@@ -122,15 +133,15 @@ function fulfillRandomWords(
     address payable winner = s_players[IndexOfWinner];
     Winner = winner ;
     s_players = new address payable[](0);
-       raffle= Raffle_State.Calculating;
+       raffle1= Raffle_State.Calculating;
        s_LastTimeStamp = block.timestamp;
        winner.transfer(address(this).balance);
        emit WinnerIs(winner);
     }
     
-    function getstate() external returns(Raffle_State)
+    function getstate() external view returns(Raffle_State)
     {
-        return raffle ;
+        return raffle1 ;
     }
   
     function getLastTimeStamp() public view returns (uint256) {

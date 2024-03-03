@@ -18,28 +18,29 @@ contract RaffleTest is StdCheats, Test{
     bytes32 gasLane;
     uint64 subscriptionId;
     uint32 callbackGasLimit;
-
+    address link;
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
-
+     uint256 starting_balance = 100 ether;
     function setUp() external {
         DeployRaffle deployer = new DeployRaffle();
         (raffle, helperConfig) = deployer.run();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
            (
-            ,
-            gasLane,
-            automationUpdateInterval,
             raffleEntranceFee,
-            callbackGasLimit,
+            automationUpdateInterval,
             vrfCoordinatorV2, // link
-            // deployerKey
-            ,
-
-        ) = helperConfig.activeNetworkConfig();
-    }
-    function testRaffleInitializesInOpenState() public view {
-        assert(raffle.getstate() == Raffle.RaffleState.open);
+            gasLane,
+            subscriptionId ,
+            callbackGasLimit,
+            link,
+              // deployerKey   
+           ) = helperConfig.activeNetworkConfig();
+           vm.deal(address(raffle), STARTING_USER_BALANCE);
+         }
+    
+    function testRaffleInitializesInOpenState() public  {
+        assert(raffle.getstate() == Raffle.Raffle_State.open);
     }
 
 
@@ -52,38 +53,40 @@ contract RaffleTest is StdCheats, Test{
          }  
   function testraffle_is_revert_when_enough_eth_not_sent() public{
      vm.prank(PLAYER);     
-     vm.expectRevert("You are not Sent enough eth ");
+     vm.expectRevert();
         raffle.enter_raffle(0);
         }
     function test_raffle_can_not_enter_in_raffle_when_raffleiscalculating() public{
-        //    raffle.Raffle_State.open
           vm.prank(PLAYER);
           raffle.enter_raffle(raffleEntranceFee);
          vm.warp(block.timestamp + automationUpdateInterval + 1);
          vm.roll(block.number + 1);
          raffle.performUpkeep("");
-         vm.expectRevert("Raffle is in calculating state");
-         vm.prank(PLAYER);
+         Raffle.Raffle_State raffleState = raffle.getstate();
+        // (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        assert(raffleState == Raffle.Raffle_State.Calculating);
+        // assert(upkeepNeeded == false);
+         vm.expectRevert();
          raffle.enter_raffle(raffleEntranceFee);
         }
        
            function test_checkUpkeep_returnfalse_when_raffle_havenobalace() public{
-         vm.warp(block.timestamp + automationUpdateInterval + 1);
-         vm.roll(block.number + 1);
+           vm.warp(block.timestamp + automationUpdateInterval + 1);
+           vm.roll(block.number + 1);
          
               (bool upkeep , ) = raffle.checkUpkeep("");
              assert(!upkeep);
               }
      function testcheckupkeepreturnfalsewhenraffleisnotopen() external{
          vm.prank(PLAYER);
-         vm.enter_raffle(raffleEntranceFee);
+         raffle.enter_raffle(raffleEntranceFee);
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number+1);
         raffle.performUpkeep("");
     
         Raffle.Raffle_State raffleState = raffle.getstate();
-           (bool upkeepneeded, ) = raffle.checkUpkeep("");
-         assert(raffleState = Raffle.Raffle_State.calculating);
+         (bool upkeepneeded, ) = raffle.checkUpkeep("");
+         assert(raffleState == Raffle.Raffle_State.Calculating);
          assert(upkeepneeded == false);    
         }
         function testcheckupreturntruwhenparametersgood() public {
@@ -100,11 +103,10 @@ contract RaffleTest is StdCheats, Test{
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
         raffle.performUpkeep("");
-     
   }
     
   function testperformupkeeprevertsifcheckupkeepisfalse() public{
-    vm.expectRevert("checkupkeep gives false");
+    vm.expectRevert();
     raffle.performUpkeep("");
   }
   /*
@@ -158,26 +160,22 @@ VRFCoordinatorV2Mock(vrfCoordinatorV2).fulfillRandomWords(
     address(raffle)
 );
 }
-
-
-     function testfulfillRandomwordspicksasawinnerresetsandsendmoney() public raffleEntered skipFork{
+         function testfulfillRandomwordspicksasawinnerresetsandsendmoney() public raffleEntered skipFork {
             address expectedwinner = address(1);
             uint256 additionalentrances = 3;
             uint256 startingindex = 1;
-          for(uint256 i = startingindex ; i < startingindex + additionalentrances ; i++){
-            address user = address(uint256(i));
+            for(uint256 i = startingindex ; i < startingindex + additionalentrances ; i++){
+            address user = address(uint160(i));
             hoax(user , 1 ether);
             raffle.enter_raffle(raffleEntranceFee);
           }
           uint256 startingTimeStamp = raffle.getLastTimeStamp();
           uint256 startingBalance = expectedwinner.balance;
-  
-          // Act
+              // Act
           vm.recordLogs();
           raffle.performUpkeep(""); // emits requestId
           Vm.Log[] memory entries = vm.getRecordedLogs();
           bytes32 requestId = entries[1].topics[1]; // get the requestId from the logs
-  
           VRFCoordinatorV2Mock(vrfCoordinatorV2).fulfillRandomWords(
               uint256(requestId),
               address(raffle)
